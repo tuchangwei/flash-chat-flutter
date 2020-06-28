@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatScreen extends StatefulWidget {
   static const String kRoute = "chat_screen";
@@ -8,6 +10,36 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  FirebaseUser _loggedInUser;
+  String _messageText;
+  final Firestore _firestore = Firestore.instance;
+  final TextEditingController _editingController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    getCurrentUser();
+    getMessages();
+  }
+
+  void getCurrentUser() async {
+    try {
+      final user = await FirebaseAuth.instance.currentUser();
+      if (user != null) {
+        _loggedInUser = user;
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  void getMessages() async {
+    final messages = await _firestore.collection('messages').getDocuments();
+    print(messages.documents);
+    for (var message in messages.documents) {
+      print(message.data);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -17,7 +49,8 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
               icon: Icon(Icons.close),
               onPressed: () {
-                //Implement logout functionality
+                FirebaseAuth.instance.signOut();
+                Navigator.of(context).pop();
               }),
         ],
         title: Text('⚡️Chat'),
@@ -28,6 +61,35 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            Expanded(
+              child: StreamBuilder(
+                stream: _firestore.collection("messages").snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        backgroundColor: Colors.lightBlueAccent,
+                      ),
+                    );
+                  }
+                  final messages = snapshot.data.documents;
+                  List<MessagesWidget> list = List();
+                  for (var message in messages) {
+                    final text = message.data["message"];
+                    final sender = message.data["sender"];
+
+                    final messageWidget = MessagesWidget(
+                      message: text,
+                      sender: sender,
+                    );
+                    list.add(messageWidget);
+                  }
+                  return ListView(
+                    children: list,
+                  );
+                },
+              ),
+            ),
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(
@@ -36,14 +98,19 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       onChanged: (value) {
-                        //Do something with the user input.
+                        _messageText = value;
                       },
                       decoration: kMessageTextFieldDecoration,
+                      controller: _editingController,
                     ),
                   ),
                   FlatButton(
                     onPressed: () {
-                      //Implement send functionality.
+                      _firestore.collection("messages").add({
+                        "message": _messageText,
+                        "sender": _loggedInUser.email
+                      });
+                      _editingController.clear();
                     },
                     child: Text(
                       'Send',
@@ -56,6 +123,21 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class MessagesWidget extends StatelessWidget {
+  final String message;
+  final String sender;
+  MessagesWidget({this.message, this.sender});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text(sender),
+        Text(message),
+      ],
     );
   }
 }

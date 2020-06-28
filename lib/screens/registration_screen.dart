@@ -5,6 +5,7 @@ import 'package:flash_chat/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:modal_progress_hud/modal_progress_hud.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const String kRoute = "registration_screen";
@@ -77,7 +78,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               email: email, password: password);
                       Navigator.of(context).pushNamed(ChatScreen.kRoute);
                     } catch (e) {
-                      print("fuck: $e");
+                      Fluttertoast.showToast(msg: e.toString());
                     } finally {
                       setState(() {
                         showSpinner = false;
